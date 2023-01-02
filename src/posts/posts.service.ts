@@ -1,44 +1,76 @@
-import { Injectable } from '@nestjs/common';
-import { PostModel, PostStatus } from './posts.model';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PostStatus } from './posts.status.enum';
 import { v1 as uuid } from 'uuid';
 import { CreatePostDto } from './dto/create-post.dto';
+import { PostRepository } from './post.repository';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Posts } from './post.entity';
 
 @Injectable()
 export class PostsService {
-  private posts: PostModel[] = []; // 다른 컴포넌트에서 posts 배열에 접근하여 수정하는 것을 막기 위해 접근 제한
+  constructor(
+    @InjectRepository(PostRepository)
+    private postRepository: PostRepository,
+  ) {}
+  // readAllPosts(): PostModel[] {
+  //   return this.posts;
+  // }
 
-  readAllPosts(): PostModel[] {
-    return this.posts;
-  }
-
-  readPostById(id: string): PostModel {
-    return this.posts.find((post) => post.id === id);
-  }
-
-  createPosts(createPostDto: CreatePostDto) {
+  async createPost(createPostDto: CreatePostDto): Promise<Posts> {
     const { title, content, author } = createPostDto;
     const time = String(new Date());
-
-    const post: PostModel = {
-      id: uuid(),
+    const post = this.postRepository.create({
       title,
       content,
       author,
       date: time,
       status: PostStatus.PUBLIC,
-    };
+    });
 
-    this.posts.push(post);
+    await this.postRepository.save(post);
     return post;
   }
 
-  updatePostStatus(id: string, status: PostStatus): PostModel {
-    const post = this.readPostById(id);
-    post.status = status;
-    return post;
+  async readPostById(id: number): Promise<Posts> {
+    const found = await this.postRepository.findOne(id);
+
+    if (!found) {
+      throw new NotFoundException(`Can't find Post with id ${id}`);
+    }
+
+    return found;
   }
 
-  deletePost(id: string): void {
-    this.posts = this.posts.filter((post) => post.id !== id);
-  }
+  // readPostById(id: string): PostModel {
+  //   const found = this.posts.find((post) => post.id === id);
+  //   if (!found) {
+  //     throw new NotFoundException(`Can't find post with id ${id}`);
+  //   }
+  //   return found;
+  // }
+
+  // createPosts(createPostDto: CreatePostDto) {
+  //   const { title, content, author } = createPostDto;
+  //   const time = String(new Date());
+  //   const post: PostModel = {
+  //     id: uuid(),
+  //     title,
+  //     content,
+  //     author,
+  //     date: time,
+  //     status: PostStatus.PUBLIC,
+  //   };
+  //   this.posts.push(post);
+  //   return post;
+  // }
+
+  // updatePostStatus(id: string, status: PostStatus): PostModel {
+  //   const post = this.readPostById(id);
+  //   post.status = status;
+  //   return post;
+  // }
+  // deletePost(id: string): void {
+  //   const found = this.readPostById(id);
+  //   this.posts = this.posts.filter((post) => post.id !== found.id);
+  // }
 }
